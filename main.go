@@ -297,7 +297,7 @@ func (s *containerStats) getSystemCPUUsage() (uint64, error) {
 			for _, i := range parts[1:8] {
 				v, err := strconv.ParseUint(i, 10, 64)
 				if err != nil {
-					return 0, fmt.Errorf("Bad CPU int %d: %v", i, err)
+					return 0, fmt.Errorf("Bad CPU int %s: %v", i, err)
 				}
 				totalClockTicks += v
 			}
