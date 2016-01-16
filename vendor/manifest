@@ -1,0 +1,103 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/Sirupsen/logrus",
+			"repository": "https://github.com/Sirupsen/logrus",
+			"revision": "446d1c146faa8ed3f4218f056fcd165f6bcfda81",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/coreos/go-systemd/dbus",
+			"repository": "https://github.com/coreos/go-systemd",
+			"revision": "2ed5b5012ccde5f057c197890a2c801295941149",
+			"branch": "master",
+			"path": "/dbus"
+		},
+		{
+			"importpath": "github.com/coreos/go-systemd/util",
+			"repository": "https://github.com/coreos/go-systemd",
+			"revision": "2ed5b5012ccde5f057c197890a2c801295941149",
+			"branch": "master",
+			"path": "/util"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/mount",
+			"repository": "https://github.com/docker/docker",
+			"revision": "d232ed4cea83a9f908b37012eea8627610a3d1ef",
+			"branch": "master",
+			"path": "/pkg/mount"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/symlink",
+			"repository": "https://github.com/docker/docker",
+			"revision": "d232ed4cea83a9f908b37012eea8627610a3d1ef",
+			"branch": "master",
+			"path": "/pkg/symlink"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/system",
+			"repository": "https://github.com/docker/docker",
+			"revision": "d232ed4cea83a9f908b37012eea8627610a3d1ef",
+			"branch": "master",
+			"path": "/pkg/system"
+		},
+		{
+			"importpath": "github.com/docker/go-units",
+			"repository": "https://github.com/docker/go-units",
+			"revision": "0bbddae09c5a5419a8c6dcdd7ff90da3d450393b",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/godbus/dbus",
+			"repository": "https://github.com/godbus/dbus",
+			"revision": "e4593d66e29678c26f84166fe231a03e0268ced5",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/golang/protobuf/proto",
+			"repository": "https://github.com/golang/protobuf",
+			"revision": "2402d76f3d41f928c7902a765dfc872356dd3aad",
+			"branch": "master",
+			"path": "/proto"
+		},
+		{
+			"importpath": "github.com/opencontainers/runc/libcontainer",
+			"repository": "https://github.com/opencontainers/runc",
+			"revision": "54b07da69e0dd5924e279b852e3693e166cc54d4",
+			"branch": "master",
+			"path": "/libcontainer"
+		},
+		{
+			"importpath": "github.com/opencontainers/specs",
+			"repository": "https://github.com/opencontainers/specs",
+			"revision": "cf8dd120937acc3593708f99304c51cfd0f73240",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/syndtr/gocapability/capability",
+			"repository": "https://github.com/syndtr/gocapability",
+			"revision": "2c00daeb6c3b45114c80ac44119e7b8801fdd852",
+			"branch": "master",
+			"path": "/capability"
+		},
+		{
+			"importpath": "github.com/vishvananda/netlink",
+			"repository": "https://github.com/vishvananda/netlink",
+			"revision": "5a5eb317d73bc513ae0cfea7d9ac3c39f145e1db",
+			"branch": "master"
+		},
+		{
+			"importpath": "gopkg.in/airbrake/gobrake.v2",
+			"repository": "https://gopkg.in/airbrake/gobrake.v2",
+			"revision": "c9d51adc624b5cc4c1bf8de730a09af4878ffe2d",
+			"branch": "master"
+		},
+		{
+			"importpath": "gopkg.in/gemnasium/logrus-airbrake-hook.v2",
+			"repository": "https://gopkg.in/gemnasium/logrus-airbrake-hook.v2",
+			"revision": "31e6fd4bd5a98d8ee7673d24bc54ec73c31810dd",
+			"branch": "master"
+		}
+	]
+}
