@@ -1,16 +1,16 @@
 # magneto
 
-[![Circle CI](https://circleci.com/gh/jfrazelle/magneto.svg?style=svg)](https://circleci.com/gh/jfrazelle/netns)
-
 Pipe runc events to a stats TUI (Text User Interface).
 
 **Usage**
 
 ```console
 $ sudo runc events | magneto
-CPU USAGE    MEM USAGE / LIMIT     MEM %     NET I/O               BLOCK I/O        PIDS
-1.28         108.8 MB / 7.902 GB   1.38%     54.86 MB / 792.8 kB   26.64 MB / 0 B   4
+CPU %   MEM USAGE / LIMIT     MEM %     NET I/O               BLOCK I/O        PIDS
+1.84%   108.8 MB / 3.902 GB   1.38%     54.86 MB / 792.8 kB   26.64 MB / 0 B   4
 ```
+
+![chrome.png](chrome.png)
 
 ```console
 $ magneto --help
