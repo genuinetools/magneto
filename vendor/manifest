@@ -69,6 +69,20 @@
 			"path": "/libcontainer"
 		},
 		{
+			"importpath": "github.com/opencontainers/runc/libcontainer/cgroups",
+			"repository": "https://github.com/opencontainers/runc",
+			"revision": "54b07da69e0dd5924e279b852e3693e166cc54d4",
+			"branch": "master",
+			"path": "/libcontainer/cgroups"
+		},
+		{
+			"importpath": "github.com/opencontainers/runc/libcontainer/system",
+			"repository": "https://github.com/opencontainers/runc",
+			"revision": "54b07da69e0dd5924e279b852e3693e166cc54d4",
+			"branch": "master",
+			"path": "/libcontainer/system"
+		},
+		{
 			"importpath": "github.com/opencontainers/specs",
 			"repository": "https://github.com/opencontainers/specs",
 			"revision": "cf8dd120937acc3593708f99304c51cfd0f73240",

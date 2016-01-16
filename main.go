@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"text/tabwriter"
@@ -15,6 +17,7 @@ import (
 	"github.com/docker/go-units"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/opencontainers/specs"
 )
 
@@ -73,17 +76,19 @@ type event struct {
 }
 
 type containerStats struct {
-	CPUUsage         float64
-	Memory           float64
-	MemoryLimit      float64
-	MemoryPercentage float64
-	NetworkRx        float64
-	NetworkTx        float64
-	BlockRead        float64
-	BlockWrite       float64
-	PidsCurrent      uint64
-	mu               sync.RWMutex
-	err              error
+	CPUPercentage       float64
+	Memory              float64
+	MemoryLimit         float64
+	MemoryPercentage    float64
+	NetworkRx           float64
+	NetworkTx           float64
+	BlockRead           float64
+	BlockWrite          float64
+	PidsCurrent         uint64
+	mu                  sync.RWMutex
+	bufReader           *bufio.Reader
+	clockTicksPerSecond uint64
+	err                 error
 }
 
 func main() {
@@ -108,18 +113,22 @@ func main() {
 	printHeader := func() {
 		fmt.Fprint(os.Stdout, "\033[2J")
 		fmt.Fprint(os.Stdout, "\033[H")
-		io.WriteString(w, "CPU USAGE\tMEM USAGE / LIMIT\tMEM %\tNET I/O\tBLOCK I/O\tPIDS\n")
+		io.WriteString(w, "CPU %\tMEM USAGE / LIMIT\tMEM %\tNET I/O\tBLOCK I/O\tPIDS\n")
 	}
 
 	// collect the stats
-	s := &containerStats{}
+	s := &containerStats{
+		clockTicksPerSecond: uint64(system.GetClockTicks()),
+		bufReader:           bufio.NewReaderSize(nil, 128),
+	}
 	go s.Collect(resources)
 
-	for range time.Tick(500 * time.Millisecond) {
+	for range time.Tick(5 * time.Second) {
 		printHeader()
 		if err := s.Display(w); err != nil {
 			logrus.Errorf("Displaying stats failed: %v", err)
 		}
+		w.Flush()
 	}
 }
 
@@ -135,8 +144,10 @@ func usageAndExit(message string, exitCode int) {
 
 func (s *containerStats) Collect(resources *specs.Resources) {
 	var (
-		dec = json.NewDecoder(os.Stdin)
-		u   = make(chan error, 1)
+		previousCPU    uint64
+		previousSystem uint64
+		dec            = json.NewDecoder(os.Stdin)
+		u              = make(chan error, 1)
 	)
 	go func() {
 		for {
@@ -151,6 +162,7 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 			}
 
 			var memPercent = 0.0
+			var cpuPercent = 0.0
 
 			v := e.Data.CgroupStats
 			// MemoryStats.Limit will never be 0 unless the container is not running and we haven't
@@ -159,9 +171,18 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 				memPercent = float64(v.MemoryStats.Usage.Usage) / float64(resources.Memory.Limit) * 100.0
 			}
 
+			systemUsage, err := s.getSystemCPUUsage()
+			if err != nil {
+				u <- fmt.Errorf("collecting system cpu usage failed: %v", err)
+				continue
+			}
+
+			cpuPercent = calculateCPUPercent(previousCPU, previousSystem, systemUsage, v)
+			previousCPU = v.CpuStats.CpuUsage.TotalUsage
+			previousSystem = systemUsage
 			blkRead, blkWrite := calculateBlockIO(v.BlkioStats)
 			s.mu.Lock()
-			s.CPUUsage = float64(v.CpuStats.CpuUsage.TotalUsage)
+			s.CPUPercentage = cpuPercent
 			s.Memory = float64(v.MemoryStats.Usage.Usage)
 			s.MemoryLimit = float64(resources.Memory.Limit)
 			s.MemoryPercentage = memPercent
@@ -175,19 +196,6 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 	}()
 	for {
 		select {
-		case <-time.After(2 * time.Second):
-			// zero out the values if we have not received an update within
-			// the specified duration.
-			s.mu.Lock()
-			s.CPUUsage = 0
-			s.Memory = 0
-			s.MemoryPercentage = 0
-			s.MemoryLimit = 0
-			s.NetworkRx = 0
-			s.NetworkTx = 0
-			s.BlockRead = 0
-			s.BlockWrite = 0
-			s.mu.Unlock()
 		case err := <-u:
 			if err != nil {
 				s.mu.Lock()
@@ -205,14 +213,29 @@ func (s *containerStats) Display(w io.Writer) error {
 	if s.err != nil {
 		return s.err
 	}
-	fmt.Fprintf(w, "%.2f\t%s / %s\t%.2f%%\t%s / %s\t%s / %s\t%d\n",
-		s.CPUUsage,
+	fmt.Fprintf(w, "%.2f%%\t%s / %s\t%.2f%%\t%s / %s\t%s / %s\t%d\n",
+		s.CPUPercentage,
 		units.HumanSize(s.Memory), units.HumanSize(s.MemoryLimit),
 		s.MemoryPercentage,
 		units.HumanSize(s.NetworkRx), units.HumanSize(s.NetworkTx),
 		units.HumanSize(s.BlockRead), units.HumanSize(s.BlockWrite),
 		s.PidsCurrent)
 	return nil
+}
+
+func calculateCPUPercent(previousCPU, previousSystem, systemUsage uint64, v *cgroups.Stats) float64 {
+	var (
+		cpuPercent = 0.0
+		// calculate the change for the cpu usage of the container in between readings
+		cpuDelta = float64(v.CpuStats.CpuUsage.TotalUsage) - float64(previousCPU)
+		// calculate the change for the entire system between readings
+		systemDelta = float64(systemUsage) - float64(previousSystem)
+	)
+
+	if systemDelta > 0.0 && cpuDelta > 0.0 {
+		cpuPercent = (cpuDelta / systemDelta) * float64(len(v.CpuStats.CpuUsage.PercpuUsage)) * 100.0
+	}
+	return cpuPercent
 }
 
 func calculateBlockIO(blkio cgroups.BlkioStats) (blkRead uint64, blkWrite uint64) {
@@ -235,4 +258,52 @@ func calculateNetwork(network []*libcontainer.NetworkInterface) (float64, float6
 		tx += float64(v.TxBytes)
 	}
 	return rx, tx
+}
+
+const nanoSecondsPerSecond = 1e9
+
+// getSystemCPUUsage returns the host system's cpu usage in
+// nanoseconds. An error is returned if the format of the underlying
+// file does not match.
+//
+// Uses /proc/stat defined by POSIX. Looks for the cpu
+// statistics line and then sums up the first seven fields
+// provided. See `man 5 proc` for details on specific field
+// information.
+func (s *containerStats) getSystemCPUUsage() (uint64, error) {
+	var line string
+	f, err := os.Open("/proc/stat")
+	if err != nil {
+		return 0, err
+	}
+	defer func() {
+		s.bufReader.Reset(nil)
+		f.Close()
+	}()
+	s.bufReader.Reset(f)
+	err = nil
+	for err == nil {
+		line, err = s.bufReader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		parts := strings.Fields(line)
+		switch parts[0] {
+		case "cpu":
+			if len(parts) < 8 {
+				return 0, fmt.Errorf("Bad CPU fields")
+			}
+			var totalClockTicks uint64
+			for _, i := range parts[1:8] {
+				v, err := strconv.ParseUint(i, 10, 64)
+				if err != nil {
+					return 0, fmt.Errorf("Bad CPU int %d: %v", i, err)
+				}
+				totalClockTicks += v
+			}
+			return (totalClockTicks * nanoSecondsPerSecond) /
+				s.clockTicksPerSecond, nil
+		}
+	}
+	return 0, fmt.Errorf("Bad stat file format")
 }
