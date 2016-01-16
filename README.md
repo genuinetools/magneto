@@ -30,3 +30,6 @@ $ magneto --help
         print version and exit
 ```
 
+**NOTE:** Almost all this is the exact same as `docker stats`, so thanks to
+everyone who made that possible.
+
