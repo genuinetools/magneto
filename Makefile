@@ -37,4 +37,4 @@ clean:
 
 install:
 	@echo "+ $@"
-	@go install -v .
+	@go install .

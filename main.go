@@ -37,7 +37,7 @@ const (
 	// VERSION is the binary version.
 	VERSION = "v0.1.0"
 
-	runtimeSpecFile = "runtime.json"
+	specFile = "config.json"
 )
 
 var (
@@ -93,20 +93,20 @@ type containerStats struct {
 
 func main() {
 	// read the runtime.json for the container so we know things like limits set
-	f, err := os.Open(runtimeSpecFile)
+	f, err := os.Open(specFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			logrus.Fatalf("JSON runtime config file %s not found", runtimeSpecFile)
+			logrus.Fatalf("JSON runtime config file %s not found", specFile)
 		}
 		logrus.Fatal(err)
 	}
 	defer f.Close()
 
-	var rspec specs.LinuxRuntimeSpec
-	if err = json.NewDecoder(f).Decode(&rspec); err != nil {
+	var spec specs.LinuxSpec
+	if err = json.NewDecoder(f).Decode(&spec); err != nil {
 		logrus.Fatal(err)
 	}
-	resources := rspec.Linux.Resources
+	resources := spec.Linux.Resources
 
 	// create the writer
 	w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
@@ -167,8 +167,8 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 			v := e.Data.CgroupStats
 			// MemoryStats.Limit will never be 0 unless the container is not running and we haven't
 			// got any data from cgroup
-			if resources.Memory.Limit != 0 {
-				memPercent = float64(v.MemoryStats.Usage.Usage) / float64(resources.Memory.Limit) * 100.0
+			if int(*resources.Memory.Limit) != 0 {
+				memPercent = float64(v.MemoryStats.Usage.Usage) / float64(*resources.Memory.Limit) * 100.0
 			}
 
 			systemUsage, err := s.getSystemCPUUsage()
@@ -184,7 +184,7 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 			s.mu.Lock()
 			s.CPUPercentage = cpuPercent
 			s.Memory = float64(v.MemoryStats.Usage.Usage)
-			s.MemoryLimit = float64(resources.Memory.Limit)
+			s.MemoryLimit = float64(*resources.Memory.Limit)
 			s.MemoryPercentage = memPercent
 			s.NetworkRx, s.NetworkTx = calculateNetwork(e.Data.Interfaces)
 			s.BlockRead = float64(blkRead)

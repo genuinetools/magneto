@@ -62,6 +62,13 @@
 			"path": "/proto"
 		},
 		{
+			"importpath": "github.com/golang/protobuf/proto/testdata",
+			"repository": "https://github.com/golang/protobuf",
+			"revision": "127091107ff5f822298f1faa7487ffcf578adcf6",
+			"branch": "master",
+			"path": "/proto/testdata"
+		},
+		{
 			"importpath": "github.com/opencontainers/runc/libcontainer",
 			"repository": "https://github.com/opencontainers/runc",
 			"revision": "54b07da69e0dd5924e279b852e3693e166cc54d4",
@@ -85,7 +92,7 @@
 		{
 			"importpath": "github.com/opencontainers/specs",
 			"repository": "https://github.com/opencontainers/specs",
-			"revision": "cf8dd120937acc3593708f99304c51cfd0f73240",
+			"revision": "v0.3.0",
 			"branch": "master"
 		},
 		{
