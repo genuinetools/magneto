@@ -18,7 +18,7 @@ import (
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/system"
-	"github.com/opencontainers/specs"
+	"github.com/opencontainers/specs/specs-go"
 )
 
 const (
@@ -102,7 +102,7 @@ func main() {
 	}
 	defer f.Close()
 
-	var spec specs.LinuxSpec
+	var spec specs.Spec
 	if err = json.NewDecoder(f).Decode(&spec); err != nil {
 		logrus.Fatal(err)
 	}
