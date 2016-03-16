@@ -1,5 +1,7 @@
 # magneto
 
+[![Circle CI](https://circleci.com/gh/jfrazelle/magneto.svg?style=svg)](https://circleci.com/gh/jfrazelle/magneto)
+
 Pipe runc events to a stats TUI (Text User Interface).
 
 **Usage**
