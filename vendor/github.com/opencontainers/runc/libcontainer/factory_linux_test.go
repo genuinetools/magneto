@@ -3,15 +3,16 @@
 package libcontainer
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"syscall"
 	"testing"
 
 	"github.com/docker/docker/pkg/mount"
 	"github.com/opencontainers/runc/libcontainer/configs"
+	"github.com/opencontainers/runc/libcontainer/utils"
 )
 
 func newTestRoot() (string, error) {
@@ -132,9 +133,22 @@ func TestFactoryLoadContainer(t *testing.T) {
 	defer os.RemoveAll(root)
 	// setup default container config and state for mocking
 	var (
-		id             = "1"
+		id            = "1"
+		expectedHooks = &configs.Hooks{
+			Prestart: []configs.Hook{
+				configs.CommandHook{Command: configs.Command{Path: "prestart-hook"}},
+			},
+			Poststart: []configs.Hook{
+				configs.CommandHook{Command: configs.Command{Path: "poststart-hook"}},
+			},
+			Poststop: []configs.Hook{
+				unserializableHook{},
+				configs.CommandHook{Command: configs.Command{Path: "poststop-hook"}},
+			},
+		}
 		expectedConfig = &configs.Config{
 			Rootfs: "/mycontainer/root",
+			Hooks:  expectedHooks,
 		}
 		expectedState = &State{
 			BaseState: BaseState{
@@ -164,6 +178,10 @@ func TestFactoryLoadContainer(t *testing.T) {
 	if config.Rootfs != expectedConfig.Rootfs {
 		t.Fatalf("expected rootfs %q but received %q", expectedConfig.Rootfs, config.Rootfs)
 	}
+	expectedHooks.Poststop = expectedHooks.Poststop[1:] // expect unserializable hook to be skipped
+	if !reflect.DeepEqual(config.Hooks, expectedHooks) {
+		t.Fatalf("expects hooks %q but received %q", expectedHooks, config.Hooks)
+	}
 	lcontainer, ok := container.(*linuxContainer)
 	if !ok {
 		t.Fatal("expected linux container on linux based systems")
@@ -179,5 +197,11 @@ func marshal(path string, v interface{}) error {
 		return err
 	}
 	defer f.Close()
-	return json.NewEncoder(f).Encode(v)
+	return utils.WriteJSON(f, v)
+}
+
+type unserializableHook struct{}
+
+func (unserializableHook) Run(configs.HookState) error {
+	return nil
 }

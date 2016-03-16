@@ -15,6 +15,7 @@ rss 1024`
 	memoryUsageContents    = "2048\n"
 	memoryMaxUsageContents = "4096\n"
 	memoryFailcnt          = "100\n"
+	memoryLimitContents    = "8192\n"
 )
 
 func TestMemorySetMemory(t *testing.T) {
@@ -100,7 +101,7 @@ func TestMemorySetKernelMemory(t *testing.T) {
 
 	helper.CgroupData.config.Resources.KernelMemory = kernelMemoryAfter
 	memory := &MemoryGroup{}
-	if err := memory.Set(helper.CgroupPath, helper.CgroupData.config); err != nil {
+	if err := memory.SetKernelMemory(helper.CgroupPath, helper.CgroupData.config); err != nil {
 		t.Fatal(err)
 	}
 
@@ -117,16 +118,14 @@ func TestMemorySetMemorySwappinessDefault(t *testing.T) {
 	helper := NewCgroupTestUtil("memory", t)
 	defer helper.cleanup()
 
-	const (
-		swappinessBefore = 60 //deafult is 60
-		swappinessAfter  = 0
-	)
+	swappinessBefore := 60 //default is 60
+	swappinessAfter := int64(0)
 
 	helper.writeFileContents(map[string]string{
 		"memory.swappiness": strconv.Itoa(swappinessBefore),
 	})
 
-	helper.CgroupData.config.Resources.Memory = swappinessAfter
+	helper.CgroupData.config.Resources.MemorySwappiness = &swappinessAfter
 	memory := &MemoryGroup{}
 	if err := memory.Set(helper.CgroupPath, helper.CgroupData.config); err != nil {
 		t.Fatal(err)
@@ -136,8 +135,8 @@ func TestMemorySetMemorySwappinessDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to parse memory.swappiness - %s", err)
 	}
-	if value != swappinessAfter {
-		t.Fatal("Got the wrong value, set memory.swappiness failed.")
+	if int64(value) != swappinessAfter {
+		t.Fatalf("Got the wrong value (%d), set memory.swappiness = %d failed.", value, swappinessAfter)
 	}
 }
 
@@ -147,14 +146,17 @@ func TestMemoryStats(t *testing.T) {
 	helper.writeFileContents(map[string]string{
 		"memory.stat":                     memoryStatContents,
 		"memory.usage_in_bytes":           memoryUsageContents,
+		"memory.limit_in_bytes":           memoryLimitContents,
 		"memory.max_usage_in_bytes":       memoryMaxUsageContents,
 		"memory.failcnt":                  memoryFailcnt,
 		"memory.memsw.usage_in_bytes":     memoryUsageContents,
 		"memory.memsw.max_usage_in_bytes": memoryMaxUsageContents,
 		"memory.memsw.failcnt":            memoryFailcnt,
+		"memory.memsw.limit_in_bytes":     memoryLimitContents,
 		"memory.kmem.usage_in_bytes":      memoryUsageContents,
 		"memory.kmem.max_usage_in_bytes":  memoryMaxUsageContents,
 		"memory.kmem.failcnt":             memoryFailcnt,
+		"memory.kmem.limit_in_bytes":      memoryLimitContents,
 	})
 
 	memory := &MemoryGroup{}
@@ -163,7 +165,7 @@ func TestMemoryStats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedStats := cgroups.MemoryStats{Cache: 512, Usage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100}, SwapUsage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100}, KernelUsage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100}, Stats: map[string]uint64{"cache": 512, "rss": 1024}}
+	expectedStats := cgroups.MemoryStats{Cache: 512, Usage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100, Limit: 8192}, SwapUsage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100, Limit: 8192}, KernelUsage: cgroups.MemoryData{Usage: 2048, MaxUsage: 4096, Failcnt: 100, Limit: 8192}, Stats: map[string]uint64{"cache": 512, "rss": 1024}}
 	expectMemoryStatEquals(t, expectedStats, actualStats.MemoryStats)
 }
 
@@ -173,6 +175,7 @@ func TestMemoryStatsNoStatFile(t *testing.T) {
 	helper.writeFileContents(map[string]string{
 		"memory.usage_in_bytes":     memoryUsageContents,
 		"memory.max_usage_in_bytes": memoryMaxUsageContents,
+		"memory.limit_in_bytes":     memoryLimitContents,
 	})
 
 	memory := &MemoryGroup{}
@@ -189,6 +192,7 @@ func TestMemoryStatsNoUsageFile(t *testing.T) {
 	helper.writeFileContents(map[string]string{
 		"memory.stat":               memoryStatContents,
 		"memory.max_usage_in_bytes": memoryMaxUsageContents,
+		"memory.limit_in_bytes":     memoryLimitContents,
 	})
 
 	memory := &MemoryGroup{}
@@ -205,6 +209,24 @@ func TestMemoryStatsNoMaxUsageFile(t *testing.T) {
 	helper.writeFileContents(map[string]string{
 		"memory.stat":           memoryStatContents,
 		"memory.usage_in_bytes": memoryUsageContents,
+		"memory.limit_in_bytes": memoryLimitContents,
+	})
+
+	memory := &MemoryGroup{}
+	actualStats := *cgroups.NewStats()
+	err := memory.GetStats(helper.CgroupPath, &actualStats)
+	if err == nil {
+		t.Fatal("Expected failure")
+	}
+}
+
+func TestMemoryStatsNoLimitInBytesFile(t *testing.T) {
+	helper := NewCgroupTestUtil("memory", t)
+	defer helper.cleanup()
+	helper.writeFileContents(map[string]string{
+		"memory.stat":               memoryStatContents,
+		"memory.usage_in_bytes":     memoryUsageContents,
+		"memory.max_usage_in_bytes": memoryMaxUsageContents,
 	})
 
 	memory := &MemoryGroup{}
@@ -222,6 +244,7 @@ func TestMemoryStatsBadStatFile(t *testing.T) {
 		"memory.stat":               "rss rss",
 		"memory.usage_in_bytes":     memoryUsageContents,
 		"memory.max_usage_in_bytes": memoryMaxUsageContents,
+		"memory.limit_in_bytes":     memoryLimitContents,
 	})
 
 	memory := &MemoryGroup{}
@@ -239,6 +262,7 @@ func TestMemoryStatsBadUsageFile(t *testing.T) {
 		"memory.stat":               memoryStatContents,
 		"memory.usage_in_bytes":     "bad",
 		"memory.max_usage_in_bytes": memoryMaxUsageContents,
+		"memory.limit_in_bytes":     memoryLimitContents,
 	})
 
 	memory := &MemoryGroup{}
@@ -256,6 +280,25 @@ func TestMemoryStatsBadMaxUsageFile(t *testing.T) {
 		"memory.stat":               memoryStatContents,
 		"memory.usage_in_bytes":     memoryUsageContents,
 		"memory.max_usage_in_bytes": "bad",
+		"memory.limit_in_bytes":     memoryLimitContents,
+	})
+
+	memory := &MemoryGroup{}
+	actualStats := *cgroups.NewStats()
+	err := memory.GetStats(helper.CgroupPath, &actualStats)
+	if err == nil {
+		t.Fatal("Expected failure")
+	}
+}
+
+func TestMemoryStatsBadLimitInBytesFile(t *testing.T) {
+	helper := NewCgroupTestUtil("memory", t)
+	defer helper.cleanup()
+	helper.writeFileContents(map[string]string{
+		"memory.stat":               memoryStatContents,
+		"memory.usage_in_bytes":     memoryUsageContents,
+		"memory.max_usage_in_bytes": memoryMaxUsageContents,
+		"memory.limit_in_bytes":     "bad",
 	})
 
 	memory := &MemoryGroup{}

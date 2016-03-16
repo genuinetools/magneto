@@ -168,6 +168,23 @@ func (m *Manager) Apply(pid int) error {
 		properties []systemdDbus.Property
 	)
 
+	if c.Paths != nil {
+		paths := make(map[string]string)
+		for name, path := range c.Paths {
+			_, err := getSubsystemPath(m.Cgroups, name)
+			if err != nil {
+				// Don't fail if a cgroup hierarchy was not found, just skip this subsystem
+				if cgroups.IsNotFound(err) {
+					continue
+				}
+				return err
+			}
+			paths[name] = path
+		}
+		m.Paths = paths
+		return cgroups.EnterPid(m.Paths, pid)
+	}
+
 	if c.Parent != "" {
 		slice = c.Parent
 	}
@@ -219,53 +236,7 @@ func (m *Manager) Apply(pid int) error {
 		return err
 	}
 
-	if err := joinDevices(c, pid); err != nil {
-		return err
-	}
-
-	// TODO: CpuQuota and CpuPeriod not available in systemd
-	// we need to manually join the cpu.cfs_quota_us and cpu.cfs_period_us
-	if err := joinCpu(c, pid); err != nil {
-		return err
-	}
-
-	// TODO: MemoryReservation and MemorySwap not available in systemd
-	if err := joinMemory(c, pid); err != nil {
-		return err
-	}
-
-	// we need to manually join the freezer, net_cls, net_prio, pids and cpuset cgroup in systemd
-	// because it does not currently support it via the dbus api.
-	if err := joinFreezer(c, pid); err != nil {
-		return err
-	}
-
-	if err := joinNetPrio(c, pid); err != nil {
-		return err
-	}
-	if err := joinNetCls(c, pid); err != nil {
-		return err
-	}
-
-	if err := joinPids(c, pid); err != nil {
-		return err
-	}
-
-	if err := joinCpuset(c, pid); err != nil {
-		return err
-	}
-
-	if err := joinHugetlb(c, pid); err != nil {
-		return err
-	}
-
-	if err := joinPerfEvent(c, pid); err != nil {
-		return err
-	}
-	// FIXME: Systemd does have `BlockIODeviceWeight` property, but we got problem
-	// using that (at least on systemd 208, see https://github.com/opencontainers/runc/libcontainer/pull/354),
-	// so use fs work around for now.
-	if err := joinBlkio(c, pid); err != nil {
+	if err := joinCgroups(c, pid); err != nil {
 		return err
 	}
 
@@ -286,6 +257,9 @@ func (m *Manager) Apply(pid int) error {
 }
 
 func (m *Manager) Destroy() error {
+	if m.Cgroups.Paths != nil {
+		return nil
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	theConn.StopUnit(getUnitName(m.Cgroups), "replace", nil)
@@ -327,44 +301,73 @@ func join(c *configs.Cgroup, subsystem string, pid int) (string, error) {
 	return path, nil
 }
 
-func joinCpu(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "cpu", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
+func joinCgroups(c *configs.Cgroup, pid int) error {
+	for _, sys := range subsystems {
+		name := sys.Name()
+		switch name {
+		case "name=systemd":
+			// let systemd handle this
+			break
+		case "cpuset":
+			path, err := getSubsystemPath(c, name)
+			if err != nil && !cgroups.IsNotFound(err) {
+				return err
+			}
+			s := &fs.CpusetGroup{}
+			if err := s.ApplyDir(path, c, pid); err != nil {
+				return err
+			}
+			break
+		default:
+			_, err := join(c, name, pid)
+			if err != nil {
+				// Even if it's `not found` error, we'll return err
+				// because devices cgroup is hard requirement for
+				// container security.
+				if name == "devices" {
+					return err
+				}
+				// For other subsystems, omit the `not found` error
+				// because they are optional.
+				if !cgroups.IsNotFound(err) {
+					return err
+				}
+			}
+		}
 	}
+
 	return nil
 }
 
-func joinFreezer(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "freezer", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
+// systemd represents slice heirarchy using `-`, so we need to follow suit when
+// generating the path of slice. Essentially, test-a-b.slice becomes
+// test.slice/test-a.slice/test-a-b.slice.
+func expandSlice(slice string) (string, error) {
+	suffix := ".slice"
+	// Name has to end with ".slice", but can't be just ".slice".
+	if len(slice) < len(suffix) || !strings.HasSuffix(slice, suffix) {
+		return "", fmt.Errorf("invalid slice name: %s", slice)
 	}
-	return nil
-}
 
-func joinNetPrio(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "net_prio", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
+	// Path-separators are not allowed.
+	if strings.Contains(slice, "/") {
+		return "", fmt.Errorf("invalid slice name: %s", slice)
 	}
-	return nil
-}
 
-func joinNetCls(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "net_cls", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
-	}
-	return nil
-}
+	var path, prefix string
+	sliceName := strings.TrimSuffix(slice, suffix)
+	for _, component := range strings.Split(sliceName, "-") {
+		// test--a.slice isn't permitted, nor is -test.slice.
+		if component == "" {
+			return "", fmt.Errorf("invalid slice name: %s", slice)
+		}
 
-func joinPids(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "pids", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
+		// Append the component to the path and to the prefix.
+		path += prefix + component + suffix + "/"
+		prefix += component + "-"
 	}
-	return nil
+
+	return path, nil
 }
 
 func getSubsystemPath(c *configs.Cgroup, subsystem string) (string, error) {
@@ -381,6 +384,11 @@ func getSubsystemPath(c *configs.Cgroup, subsystem string) (string, error) {
 	slice := "system.slice"
 	if c.Parent != "" {
 		slice = c.Parent
+	}
+
+	slice, err = expandSlice(slice)
+	if err != nil {
+		return "", err
 	}
 
 	return filepath.Join(mountpoint, initPath, slice, getUnitName(c)), nil
@@ -440,12 +448,6 @@ func (m *Manager) GetStats() (*cgroups.Stats, error) {
 
 func (m *Manager) Set(container *configs.Config) error {
 	for _, sys := range subsystems {
-		// We can't set this here, because after being applied, memcg doesn't
-		// allow a non-empty cgroup from having its limits changed.
-		if sys.Name() == "memory" {
-			continue
-		}
-
 		// Get the subsystem path, but don't error out for not found cgroups.
 		path, err := getSubsystemPath(container.Cgroups, sys.Name())
 		if err != nil && !cgroups.IsNotFound(err) {
@@ -469,27 +471,6 @@ func getUnitName(c *configs.Cgroup) string {
 	return fmt.Sprintf("%s-%s.scope", c.ScopePrefix, c.Name)
 }
 
-// Atm we can't use the systemd device support because of two missing things:
-// * Support for wildcards to allow mknod on any device
-// * Support for wildcards to allow /dev/pts support
-//
-// The second is available in more recent systemd as "char-pts", but not in e.g. v208 which is
-// in wide use. When both these are available we will be able to switch, but need to keep the old
-// implementation for backwards compat.
-//
-// Note: we can't use systemd to set up the initial limits, and then change the cgroup
-// because systemd will re-write the device settings if it needs to re-apply the cgroup context.
-// This happens at least for v208 when any sibling unit is started.
-func joinDevices(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "devices", pid)
-	// Even if it's `not found` error, we'll return err because devices cgroup
-	// is hard requirement for container security.
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 func setKernelMemory(c *configs.Cgroup) error {
 	path, err := getSubsystemPath(c, "memory")
 	if err != nil && !cgroups.IsNotFound(err) {
@@ -500,97 +481,7 @@ func setKernelMemory(c *configs.Cgroup) error {
 		return err
 	}
 
-	// Shamelessly copied from fs.(*MemoryGroup).Set(). This doesn't get called
-	// by manager.Set, so we need to do it here.
-	if c.Resources.KernelMemory > 0 {
-		if err := writeFile(path, "memory.kmem.limit_in_bytes", strconv.FormatInt(c.Resources.KernelMemory, 10)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func joinMemory(c *configs.Cgroup, pid int) error {
-	path, err := join(c, "memory", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
-	}
-
-	// Shamelessly copied from fs.(*MemoryGroup).Set(). This doesn't include the
-	// kernel memory limit (which is done in setKernelMemory). All of these are
-	// not set by manager.Set, we have do do it here.
-
-	if c.Resources.Memory != 0 {
-		if err := writeFile(path, "memory.limit_in_bytes", strconv.FormatInt(c.Resources.Memory, 10)); err != nil {
-			return err
-		}
-	}
-	if c.Resources.MemoryReservation != 0 {
-		if err := writeFile(path, "memory.soft_limit_in_bytes", strconv.FormatInt(c.Resources.MemoryReservation, 10)); err != nil {
-			return err
-		}
-	}
-	if c.Resources.MemorySwap > 0 {
-		if err := writeFile(path, "memory.memsw.limit_in_bytes", strconv.FormatInt(c.Resources.MemorySwap, 10)); err != nil {
-			return err
-		}
-	}
-	if c.Resources.OomKillDisable {
-		if err := writeFile(path, "memory.oom_control", "1"); err != nil {
-			return err
-		}
-	}
-	if c.Resources.MemorySwappiness >= 0 && c.Resources.MemorySwappiness <= 100 {
-		if err := writeFile(path, "memory.swappiness", strconv.FormatInt(c.Resources.MemorySwappiness, 10)); err != nil {
-			return err
-		}
-	} else if c.Resources.MemorySwappiness == -1 {
-		return nil
-	} else {
-		return fmt.Errorf("invalid value:%d. valid memory swappiness range is 0-100", c.Resources.MemorySwappiness)
-	}
-
-	return nil
-}
-
-// systemd does not atm set up the cpuset controller, so we must manually
-// join it. Additionally that is a very finicky controller where each
-// level must have a full setup as the default for a new directory is "no cpus"
-func joinCpuset(c *configs.Cgroup, pid int) error {
-	path, err := getSubsystemPath(c, "cpuset")
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
-	}
-
-	s := &fs.CpusetGroup{}
-
-	return s.ApplyDir(path, c, pid)
-}
-
-// `BlockIODeviceWeight` property of systemd does not work properly, and systemd
-// expects device path instead of major minor numbers, which is also confusing
-// for users. So we use fs work around for now.
-func joinBlkio(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "blkio", pid)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func joinHugetlb(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "hugetlb", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
-	}
-	return nil
-}
-
-func joinPerfEvent(c *configs.Cgroup, pid int) error {
-	_, err := join(c, "perf_event", pid)
-	if err != nil && !cgroups.IsNotFound(err) {
-		return err
-	}
-	return nil
+	// This doesn't get called by manager.Set, so we need to do it here.
+	s := &fs.MemoryGroup{}
+	return s.SetKernelMemory(path, c)
 }

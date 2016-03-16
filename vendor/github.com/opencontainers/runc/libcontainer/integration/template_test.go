@@ -46,10 +46,9 @@ func newTemplateConfig(rootfs string) *configs.Config {
 			{Type: configs.NEWNET},
 		}),
 		Cgroups: &configs.Cgroup{
-			Name:   "test",
-			Parent: "integration",
+			Path: "integration/test",
 			Resources: &configs.Resources{
-				MemorySwappiness: -1,
+				MemorySwappiness: nil,
 				AllowAllDevices:  false,
 				AllowedDevices:   configs.DefaultAllowedDevices,
 			},
