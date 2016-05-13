@@ -163,6 +163,10 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 			var cpuPercent = 0.0
 
 			v := e.Data.CgroupStats
+			if v == nil {
+				return
+			}
+
 			// MemoryStats.Limit will never be 0 unless the container is not running and we haven't
 			// got any data from cgroup
 			if int(*resources.Memory.Limit) != 0 {
