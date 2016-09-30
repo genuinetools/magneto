@@ -7,7 +7,7 @@ ENV GOPATH /go
 RUN	apk add --no-cache \
 	ca-certificates
 
-COPY . /go/src/github.com/jfrazelle/magneto
+COPY . /go/src/github.com/jessfraz/magneto
 
 RUN set -x \
 	&& apk add --no-cache --virtual .build-deps \
@@ -17,7 +17,7 @@ RUN set -x \
 		libc-dev \
 		libgcc \
 		linux-headers \
-	&& cd /go/src/github.com/jfrazelle/magneto \
+	&& cd /go/src/github.com/jessfraz/magneto \
 	&& go build -o /usr/bin/magneto . \
 	&& apk del .build-deps \
 	&& rm -rf /go \

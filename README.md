@@ -1,6 +1,6 @@
 # magneto
 
-[![Travis CI](https://travis-ci.org/jfrazelle/magneto.svg?branch=master)](https://travis-ci.org/jfrazelle/magneto)
+[![Travis CI](https://travis-ci.org/jessfraz/magneto.svg?branch=master)](https://travis-ci.org/jessfraz/magneto)
 
 Pipe runc events to a stats TUI (Text User Interface).
 
