@@ -15,13 +15,13 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/Sirupsen/logrus"
-	"github.com/docker/go-units"
+	units "github.com/docker/go-units"
 	"github.com/jessfraz/magneto/version"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/system"
-	"github.com/opencontainers/specs/specs-go"
+	specs "github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -45,8 +45,7 @@ const (
 )
 
 var (
-	containerID string
-	root        string
+	root string
 
 	debug bool
 	vrsn  bool
@@ -54,7 +53,6 @@ var (
 
 func init() {
 	// Parse flags
-	flag.StringVar(&containerID, "id", "", "container ID (required if not run in directory with a runc spec)")
 	flag.StringVar(&root, "root", defaultRoot, "root directory of runc storage of container state")
 	flag.BoolVar(&vrsn, "version", false, "print version and exit")
 	flag.BoolVar(&vrsn, "v", false, "print version and exit (shorthand)")
@@ -101,11 +99,6 @@ type containerStats struct {
 }
 
 func main() {
-	resources, err := getContainerResources(containerID)
-	if err != nil {
-		logrus.Fatalf("Getting container's configured resources failed: %v", err)
-	}
-
 	// create the writer
 	w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
 	printHeader := func() {
@@ -119,7 +112,7 @@ func main() {
 		clockTicksPerSecond: uint64(system.GetClockTicks()),
 		bufReader:           bufio.NewReaderSize(nil, 128),
 	}
-	go s.Collect(resources)
+	go s.Collect()
 
 	for range time.Tick(5 * time.Second) {
 		printHeader()
@@ -140,7 +133,7 @@ func usageAndExit(message string, exitCode int) {
 	os.Exit(exitCode)
 }
 
-func (s *containerStats) Collect(resources *specs.Resources) {
+func (s *containerStats) Collect() {
 	var (
 		previousCPU    uint64
 		previousSystem uint64
@@ -164,6 +157,12 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 
 			v := e.Data.CgroupStats
 			if v == nil {
+				return
+			}
+
+			resources, err := getContainerResources(e.ID)
+			if err != nil {
+				u <- fmt.Errorf("Getting container's configured resources failed: %v", err)
 				return
 			}
 
@@ -203,6 +202,7 @@ func (s *containerStats) Collect(resources *specs.Resources) {
 				s.mu.Lock()
 				s.err = err
 				s.mu.Unlock()
+				logrus.Fatal(err)
 				return
 			}
 		}
@@ -310,49 +310,40 @@ func (s *containerStats) getSystemCPUUsage() (uint64, error) {
 	return 0, fmt.Errorf("Bad stat file format")
 }
 
-func getContainerResources(id string) (*specs.Resources, error) {
-	specPath := specFile
-
-	// if we are passed a containerID get the bundle dir to get the spec file
-	if containerID != "" && root != "" {
-		abs, err := filepath.Abs(root)
-		if err != nil {
-			return nil, err
-		}
-
-		// check to make sure a container exists with this ID
-		s := path.Join(abs, id, stateFile)
-		if _, err := os.Stat(s); os.IsNotExist(err) {
-			return nil, fmt.Errorf("State file %s does not exist", s)
-		}
-
-		// create the factory
-		factory, err := libcontainer.New(abs, libcontainer.Cgroupfs, func(l *libcontainer.LinuxFactory) error {
-			return nil
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		// get the container
-		container, err := factory.Load(id)
-		if err != nil {
-			return nil, err
-		}
-
-		bundle := searchLabels(container.Config().Labels, "bundle")
-		specPath = path.Join(bundle, specFile)
+func getContainerResources(id string) (*specs.LinuxResources, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
 	}
+
+	// check to make sure a container exists with this ID
+	statePath := path.Join(abs, id, stateFile)
+
+	// read the state.json for the container so we can find out the bundle path
+	f, err := os.Open(statePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("JSON runtime state file %s not found at %s", stateFile, statePath)
+		}
+	}
+	defer f.Close()
+
+	var state libcontainer.State
+	if err = json.NewDecoder(f).Decode(&state); err != nil {
+		return nil, err
+	}
+
+	bundle := searchLabels(state.Config.Labels, "bundle")
+	specPath := path.Join(bundle, specFile)
 
 	// read the runtime.json for the container so we know things like limits set
 	// this is only if a container ID is not passed we assume we are in a directory
 	// with a config.json containing the spec
-	f, err := os.Open(specPath)
+	f, err = os.Open(specPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("JSON runtime config file %s not found", specFile)
+			return nil, fmt.Errorf("JSON runtime config file %s not found at %s", specFile, specPath)
 		}
-		logrus.Fatal(err)
 	}
 	defer f.Close()
 
