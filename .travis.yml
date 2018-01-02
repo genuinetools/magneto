@@ -27,37 +27,16 @@
       secure: "R1ABRhNyFqEvVzMWzsEwgt104p5M4ofpTyUraXZgAj8sEGAZrVedJz42bbC3rtdVxBEvfWiXGR1DYV5F+sEuhYyD7DQhezi4aTSK0zEepdf96P7fqkN/ssUAMql2WhKoJPpBmAovZwrT+77ZkUPRKSYWXTgFOIT7u2RtaV9dI2s6SQXgL0ebySLQM/4UFvAwZxCGg19VhgR3ehDCl+SLIP/0keaRsKVXdakHS3nCiN3efCOKqNiVpQd+NtpTGU+OCdfAxObaeJmgL1Uowl/mRJ6bKLzBh4d5K0f53Dpo1dxnhk7UbE+MIpgyazzahLV/wXSTpXix17sTAYCF6rTwpVn8W/XYN1PAC2KJHRkVtpu1Mioj6RwoQQKqYhZKBZ6ACZOISIe9dTjlTnay7BGiM4TadfZvUVRBr2BhoJKz69Z7CIjl09Kd4K9OnXea/BoqdG1s3VSXWxVRrytFWe10MiTrF8YIlWNzo3Edm14xVrguG5nFy8vafldfBI+rDdVMhJKzTJ/PqJk16IduJFu4PpyWayc5Qt0nPNaeVO4kVo7UmacUHuAEI9QHViRSvAuSrVq21XZ0uNxTM81K5Heh5FEBPXzVk93ORWGNzFe3l+vI8a/QS9dkvD0Jv2w40MpK4lUyRBPg7ZaR7cUHqvASjGjGyuh5PZkFZxgWGg9haPI="
     file:
       - cross/magneto-linux-amd64.md5
-      - cross/magneto-windows-386.sha256
       - cross/magneto-linux-arm
-      - cross/magneto-darwin-amd64.md5
-      - cross/magneto-darwin-amd64
-      - cross/magneto-solaris-amd64.md5
       - cross/magneto-linux-arm64.sha256
       - cross/magneto-linux-arm.sha256
       - cross/magneto-linux-386.sha256
-      - cross/magneto-darwin-386.md5
-      - cross/magneto-windows-386.md5
-      - cross/magneto-freebsd-amd64.md5
       - cross/magneto-linux-arm64.md5
       - cross/magneto-linux-arm64
-      - cross/magneto-freebsd-amd64.sha256
-      - cross/magneto-freebsd-386.md5
       - cross/magneto-linux-amd64.sha256
       - cross/magneto-linux-386.md5
-      - cross/magneto-freebsd-386
-      - cross/magneto-solaris-amd64.sha256
-      - cross/magneto-windows-amd64
-      - cross/magneto-windows-amd64.md5
-      - cross/magneto-windows-amd64.sha256
       - cross/magneto-linux-arm.md5
-      - cross/magneto-darwin-386.sha256
-      - cross/magneto-darwin-amd64.sha256
-      - cross/magneto-windows-386
-      - cross/magneto-solaris-amd64
-      - cross/magneto-darwin-386
       - cross/magneto-linux-386
-      - cross/magneto-freebsd-amd64
-      - cross/magneto-freebsd-386.sha256
       - cross/magneto-linux-amd64
     skip_cleanup: true
     on:

@@ -8,11 +8,7 @@ Pipe runc events to a stats TUI (Text User Interface).
 
 #### Binaries
 
-- **darwin** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-darwin-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-darwin-amd64)
-- **freebsd** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-freebsd-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-freebsd-amd64)
 - **linux** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-amd64) / [arm](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-arm) / [arm64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-arm64)
-- **solaris** [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-solaris-amd64)
-- **windows** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-windows-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-windows-amd64)
 
 #### Via Go
 
@@ -23,12 +19,19 @@ $ go get github.com/jessfraz/magneto
 ## Usage
 
 ```console
-$ sudo runc events | magneto
+$ sudo runc events <container_id> | magneto
 CPU %   MEM USAGE / LIMIT     MEM %     NET I/O               BLOCK I/O        PIDS
 1.84%   108.8 MB / 3.902 GB   1.38%     54.86 MB / 792.8 kB   26.64 MB / 0 B   4
 ```
 
 ![chrome.png](chrome.png)
+
+**Usage with the `docker-runc` command that ships with docker**
+
+```console
+$ sudo docker-runc -root /run/docker/runtime-runc/moby events <container_id> \
+    | sudo magneto -root /run/docker/runtime-runc/moby
+```
 
 ```console
 $ magneto --help
@@ -41,9 +44,11 @@ $ magneto --help
 
  Pipe runc events to a stats TUI (Text User Interface).
  Version: v0.0.0
- Build: fc18a9b
+ Build: 30036e2
 
   -d    run in debug mode
+  -root string
+        root directory of runc storage of container state (default "/run/runc")
   -v    print version and exit (shorthand)
   -version
         print version and exit
@@ -51,4 +56,3 @@ $ magneto --help
 
 **NOTE:** Almost all this is the exact same as `docker stats`, so thanks to
 everyone who made that possible.
-
