@@ -17,6 +17,7 @@ import (
 
 	"github.com/Sirupsen/logrus"
 	"github.com/docker/go-units"
+	"github.com/jessfraz/magneto/version"
 	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/system"
@@ -34,10 +35,9 @@ const (
 
  Pipe runc events to a stats TUI (Text User Interface).
  Version: %s
+ Build: %s
 
 `
-	// VERSION is the binary version.
-	VERSION = "v0.1.0"
 
 	specFile    = "config.json"
 	stateFile   = "state.json"
@@ -48,27 +48,27 @@ var (
 	containerID string
 	root        string
 
-	debug   bool
-	version bool
+	debug bool
+	vrsn  bool
 )
 
 func init() {
 	// Parse flags
 	flag.StringVar(&containerID, "id", "", "container ID (required if not run in directory with a runc spec)")
 	flag.StringVar(&root, "root", defaultRoot, "root directory of runc storage of container state")
-	flag.BoolVar(&version, "version", false, "print version and exit")
-	flag.BoolVar(&version, "v", false, "print version and exit (shorthand)")
+	flag.BoolVar(&vrsn, "version", false, "print version and exit")
+	flag.BoolVar(&vrsn, "v", false, "print version and exit (shorthand)")
 	flag.BoolVar(&debug, "d", false, "run in debug mode")
 
 	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, fmt.Sprintf(BANNER, VERSION))
+		fmt.Fprint(os.Stderr, fmt.Sprintf(BANNER, version.VERSION, version.GITCOMMIT))
 		flag.PrintDefaults()
 	}
 
 	flag.Parse()
 
-	if version {
-		fmt.Printf("%s", VERSION)
+	if vrsn {
+		fmt.Printf("magneto version %s, build %s", version.VERSION, version.GITCOMMIT)
 		os.Exit(0)
 	}
 

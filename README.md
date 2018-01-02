@@ -4,7 +4,23 @@
 
 Pipe runc events to a stats TUI (Text User Interface).
 
-**Usage**
+## Installation
+
+#### Binaries
+
+- **darwin** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-darwin-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-darwin-amd64)
+- **freebsd** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-freebsd-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-freebsd-amd64)
+- **linux** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-amd64) / [arm](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-arm) / [arm64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-linux-arm64)
+- **solaris** [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-solaris-amd64)
+- **windows** [386](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-windows-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.0.0/magneto-windows-amd64)
+
+#### Via Go
+
+```bash
+$ go get github.com/jessfraz/magneto
+```
+
+## Usage
 
 ```console
 $ sudo runc events | magneto
@@ -24,7 +40,8 @@ $ magneto --help
                  |___/
 
  Pipe runc events to a stats TUI (Text User Interface).
- Version: v0.1.0
+ Version: v0.0.0
+ Build: fc18a9b
 
   -d    run in debug mode
   -v    print version and exit (shorthand)
