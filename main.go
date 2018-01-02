@@ -6,8 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -18,7 +18,6 @@ import (
 	units "github.com/docker/go-units"
 	"github.com/jessfraz/magneto/types"
 	"github.com/jessfraz/magneto/version"
-	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/system"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -42,6 +41,8 @@ const (
 	specFile    = "config.json"
 	stateFile   = "state.json"
 	defaultRoot = "/run/runc"
+
+	nanoSecondsPerSecond = 1e9
 )
 
 var (
@@ -89,8 +90,8 @@ type containerStats struct {
 	MemoryPercentage    float64
 	NetworkRx           float64
 	NetworkTx           float64
-	BlockRead           float64
-	BlockWrite          float64
+	BlockRead           uint64
+	BlockWrite          uint64
 	PidsCurrent         uint64
 	mu                  sync.RWMutex
 	bufReader           *bufio.Reader
@@ -112,12 +113,13 @@ func main() {
 		clockTicksPerSecond: uint64(system.GetClockTicks()),
 		bufReader:           bufio.NewReaderSize(nil, 128),
 	}
-	go s.Collect()
+
+	go s.collect()
 
 	for range time.Tick(5 * time.Second) {
 		printHeader()
 		if err := s.Display(w); err != nil {
-			logrus.Errorf("Displaying stats failed: %v", err)
+			logrus.Error(err)
 		}
 		w.Flush()
 	}
@@ -133,44 +135,42 @@ func usageAndExit(message string, exitCode int) {
 	os.Exit(exitCode)
 }
 
-func (s *containerStats) Collect() {
+func (s *containerStats) collect() {
 	var (
 		previousCPU    uint64
 		previousSystem uint64
 		dec            = json.NewDecoder(os.Stdin)
 		u              = make(chan error, 1)
 	)
+
 	go func() {
 		for {
-			var e event
+			var (
+				e                      event
+				memPercent, cpuPercent float64
+				blkRead, blkWrite      uint64 // Only used on Linux
+				mem, memLimit          float64
+				netRx, netTx           float64
+				pidsCurrent            uint64
+			)
+
 			if err := dec.Decode(&e); err != nil {
 				u <- err
-				return
+				time.Sleep(100 * time.Millisecond)
+				continue
 			}
+
 			if e.Type != "stats" {
 				// do nothing since there are no other events yet
-				return
+				continue
 			}
+			v := e.Data
 
-			var memPercent = 0.0
-			var cpuPercent = 0.0
-
-			v := e.Data.CgroupStats
-			if v == nil {
-				return
-			}
-
-			resources, err := getContainerResources(e.ID)
+			/*resources, err := getContainerResources(e.ID)
 			if err != nil {
 				u <- fmt.Errorf("Getting container's configured resources failed: %v", err)
-				return
-			}
-
-			// MemoryStats.Limit will never be 0 unless the container is not running and we haven't
-			// got any data from cgroup
-			if int(*resources.Memory.Limit) != 0 {
-				memPercent = float64(v.MemoryStats.Usage.Usage) / float64(*resources.Memory.Limit) * 100.0
-			}
+				continue
+			}*/
 
 			systemUsage, err := s.getSystemCPUUsage()
 			if err != nil {
@@ -179,68 +179,93 @@ func (s *containerStats) Collect() {
 			}
 
 			cpuPercent = calculateCPUPercent(previousCPU, previousSystem, systemUsage, v)
-			previousCPU = v.CpuStats.CpuUsage.TotalUsage
+			previousCPU = v.CPU.Usage.Total
 			previousSystem = systemUsage
-			blkRead, blkWrite := calculateBlockIO(v.BlkioStats)
+
+			blkRead, blkWrite = calculateBlockIO(v.Blkio)
+
+			mem = calculateMemUsageNoCache(v.Memory)
+			memLimit = float64(v.Memory.Usage.Limit)
+			memPercent = calculateMemPercentNoCache(s.MemoryLimit, s.Memory)
+
+			//netRx, netTx = calculateNetwork(e.Data.Interfaces)
+
+			pidsCurrent = v.Pids.Current
+
+			// set the stats
 			s.mu.Lock()
 			s.CPUPercentage = cpuPercent
-			s.Memory = float64(v.MemoryStats.Usage.Usage)
-			s.MemoryLimit = float64(*resources.Memory.Limit)
+			s.BlockRead = blkRead
+			s.BlockWrite = blkWrite
+			s.Memory = mem
+			s.MemoryLimit = memLimit
 			s.MemoryPercentage = memPercent
-			s.NetworkRx, s.NetworkTx = calculateNetwork(e.Data.Interfaces)
-			s.BlockRead = float64(blkRead)
-			s.BlockWrite = float64(blkWrite)
-			s.PidsCurrent = v.PidsStats.Current
+			s.NetworkRx = netRx
+			s.NetworkTx = netTx
+			s.PidsCurrent = pidsCurrent
 			s.mu.Unlock()
+
 			u <- nil
 		}
 	}()
+
 	for {
 		select {
 		case err := <-u:
-			if err != nil {
-				s.mu.Lock()
-				s.err = err
-				s.mu.Unlock()
-				logrus.Fatal(err)
-				return
-			}
+			s.setError(err)
+			continue
 		}
 	}
 }
+
+var it = 0
 
 func (s *containerStats) Display(w io.Writer) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
+	// check the error here
 	if s.err != nil {
 		return s.err
 	}
-	fmt.Fprintf(w, "%.2f%%\t%s / %s\t%.2f%%\t%s / %s\t%s / %s\t%d\n",
+
+	fmt.Fprintf(w, "%.2f%%\t%s / %s\t%.2f%%\t%s / %s\t%d / %d\t%d\n",
 		s.CPUPercentage,
 		units.HumanSize(s.Memory), units.HumanSize(s.MemoryLimit),
 		s.MemoryPercentage,
 		units.HumanSize(s.NetworkRx), units.HumanSize(s.NetworkTx),
-		units.HumanSize(s.BlockRead), units.HumanSize(s.BlockWrite),
+		s.BlockRead, s.BlockWrite,
 		s.PidsCurrent)
+
+	logrus.Infof("displayed stats %d", it)
+	it++
 	return nil
 }
 
-func calculateCPUPercent(previousCPU, previousSystem, systemUsage uint64, v *cgroups.Stats) float64 {
+// setError sets container statistics error
+func (s *containerStats) setError(err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.err = err
+}
+
+func calculateCPUPercent(previousCPU, previousSystem, systemUsage uint64, v types.Stats) float64 {
 	var (
 		cpuPercent = 0.0
 		// calculate the change for the cpu usage of the container in between readings
-		cpuDelta = float64(v.CpuStats.CpuUsage.TotalUsage) - float64(previousCPU)
+		cpuDelta = float64(v.CPU.Usage.Total) - float64(previousCPU)
 		// calculate the change for the entire system between readings
 		systemDelta = float64(systemUsage) - float64(previousSystem)
 	)
 
 	if systemDelta > 0.0 && cpuDelta > 0.0 {
-		cpuPercent = (cpuDelta / systemDelta) * float64(len(v.CpuStats.CpuUsage.PercpuUsage)) * 100.0
+		cpuPercent = (cpuDelta / systemDelta) * float64(len(v.CPU.Usage.Percpu)) * 100.0
 	}
 	return cpuPercent
 }
 
-func calculateBlockIO(blkio cgroups.BlkioStats) (blkRead uint64, blkWrite uint64) {
+func calculateBlockIO(blkio types.Blkio) (uint64, uint64) {
+	var blkRead, blkWrite uint64
 	for _, bioEntry := range blkio.IoServiceBytesRecursive {
 		switch strings.ToLower(bioEntry.Op) {
 		case "read":
@@ -249,7 +274,7 @@ func calculateBlockIO(blkio cgroups.BlkioStats) (blkRead uint64, blkWrite uint64
 			blkWrite = blkWrite + bioEntry.Value
 		}
 	}
-	return
+	return blkRead, blkWrite
 }
 
 func calculateNetwork(network []*types.NetworkInterface) (float64, float64) {
@@ -262,7 +287,20 @@ func calculateNetwork(network []*types.NetworkInterface) (float64, float64) {
 	return rx, tx
 }
 
-const nanoSecondsPerSecond = 1e9
+// calculateMemUsageNoCache calculate memory usage of the container.
+// Page cache is intentionally excluded to avoid misinterpretation of the output.
+func calculateMemUsageNoCache(mem types.Memory) float64 {
+	return float64(mem.Usage.Usage - mem.Cache)
+}
+
+func calculateMemPercentNoCache(limit float64, usedNoCache float64) float64 {
+	// MemoryStats.Limit will never be 0 unless the container is not running and we haven't
+	// got any data from cgroup
+	if limit != 0 {
+		return usedNoCache / limit * 100.0
+	}
+	return 0
+}
 
 // getSystemCPUUsage returns the host system's cpu usage in
 // nanoseconds. An error is returned if the format of the underlying
@@ -293,13 +331,13 @@ func (s *containerStats) getSystemCPUUsage() (uint64, error) {
 		switch parts[0] {
 		case "cpu":
 			if len(parts) < 8 {
-				return 0, fmt.Errorf("Bad CPU fields")
+				return 0, fmt.Errorf("invalid number of cpu fields")
 			}
 			var totalClockTicks uint64
 			for _, i := range parts[1:8] {
 				v, err := strconv.ParseUint(i, 10, 64)
 				if err != nil {
-					return 0, fmt.Errorf("Bad CPU int %s: %v", i, err)
+					return 0, fmt.Errorf("Unable to convert value %s to int: %s", i, err)
 				}
 				totalClockTicks += v
 			}
@@ -307,7 +345,8 @@ func (s *containerStats) getSystemCPUUsage() (uint64, error) {
 				s.clockTicksPerSecond, nil
 		}
 	}
-	return 0, fmt.Errorf("Bad stat file format")
+
+	return 0, fmt.Errorf("invalid stat format. Error trying to parse the '/proc/stat' file")
 }
 
 func getContainerResources(id string) (*specs.LinuxResources, error) {
@@ -317,7 +356,7 @@ func getContainerResources(id string) (*specs.LinuxResources, error) {
 	}
 
 	// check to make sure a container exists with this ID
-	statePath := path.Join(abs, id, stateFile)
+	statePath := filepath.Join(abs, id, stateFile)
 
 	// read the state.json for the container so we can find out the bundle path
 	f, err := os.Open(statePath)
@@ -334,7 +373,7 @@ func getContainerResources(id string) (*specs.LinuxResources, error) {
 	}
 
 	bundle := searchLabels(state.Config.Labels, "bundle")
-	specPath := path.Join(bundle, specFile)
+	specPath := filepath.Join(bundle, specFile)
 
 	// read the runtime.json for the container so we know things like limits set
 	// this is only if a container ID is not passed we assume we are in a directory
@@ -350,6 +389,18 @@ func getContainerResources(id string) (*specs.LinuxResources, error) {
 	var spec specs.Spec
 	if err = json.NewDecoder(f).Decode(&spec); err != nil {
 		return nil, err
+	}
+	if spec.Linux.Resources.Memory.Limit == nil {
+		// set the memory limit manually
+		b, err := ioutil.ReadFile(filepath.Join(state.CgroupPaths["memory"], "memory.limit_in_bytes"))
+		if err != nil {
+			return nil, err
+		}
+		i, err := units.RAMInBytes(strings.TrimSpace(string(b)) + "b")
+		if err != nil {
+			return nil, err
+		}
+		spec.Linux.Resources.Memory.Limit = &i
 	}
 	return spec.Linux.Resources, nil
 }

@@ -2,18 +2,16 @@
 
 
 [[projects]]
+  branch = "master"
   name = "github.com/docker/go-units"
   packages = ["."]
-  revision = "0dadbb0345b35ec7ef35e228dabb8de89a65bf52"
-  version = "v0.3.2"
+  revision = "d59758554a3d3911fa25c0269de1ebe2f1912c39"
 
 [[projects]]
   branch = "master"
   name = "github.com/opencontainers/runc"
   packages = [
-    "libcontainer/cgroups",
     "libcontainer/configs",
-    "libcontainer/intelrdt",
     "libcontainer/system"
   ]
   revision = "e6516b3d5dc780cb57a976013c242a9a93052543"
@@ -48,6 +46,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1970ce8b07888e29ee302d2696228054d6aee807eb9a3be37d6c0f3382b90299"
+  inputs-digest = "233754ffe0e30be711df94568b49080f378062da0132fa95919ba17cc91c1afe"
   solver-name = "gps-cdcl"
   solver-version = 1
