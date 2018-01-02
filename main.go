@@ -16,8 +16,8 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/jessfraz/magneto/types"
 	"github.com/jessfraz/magneto/version"
-	"github.com/opencontainers/runc/libcontainer"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/system"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
@@ -77,9 +77,9 @@ func init() {
 }
 
 type event struct {
-	Type string             `json:"type"`
-	ID   string             `json:"id"`
-	Data libcontainer.Stats `json:"data,omitempty"`
+	Type string      `json:"type"`
+	ID   string      `json:"id"`
+	Data types.Stats `json:"data,omitempty"`
 }
 
 type containerStats struct {
@@ -252,7 +252,7 @@ func calculateBlockIO(blkio cgroups.BlkioStats) (blkRead uint64, blkWrite uint64
 	return
 }
 
-func calculateNetwork(network []*libcontainer.NetworkInterface) (float64, float64) {
+func calculateNetwork(network []*types.NetworkInterface) (float64, float64) {
 	var rx, tx float64
 
 	for _, v := range network {
@@ -328,7 +328,7 @@ func getContainerResources(id string) (*specs.LinuxResources, error) {
 	}
 	defer f.Close()
 
-	var state libcontainer.State
+	var state types.State
 	if err = json.NewDecoder(f).Decode(&state); err != nil {
 		return nil, err
 	}
