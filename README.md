@@ -20,8 +20,8 @@ $ go get github.com/jessfraz/magneto
 
 ```console
 $ sudo runc events <container_id> | magneto
-CPU %   MEM USAGE / LIMIT     MEM %     NET I/O               BLOCK I/O        PIDS
-1.84%   108.8 MB / 3.902 GB   1.38%     54.86 MB / 792.8 kB   26.64 MB / 0 B   4
+CPU %   MEM USAGE / LIMIT       MEM %     NET I/O               BLOCK I/O        PIDS
+1.84%   108.8 MiB / 3.902 GiB   1.38%     54.86 MB / 792.8 kB   26.64 MB / 0 B   4
 ```
 
 ![chrome.png](chrome.png)
@@ -29,8 +29,9 @@ CPU %   MEM USAGE / LIMIT     MEM %     NET I/O               BLOCK I/O        P
 **Usage with the `docker-runc` command that ships with docker**
 
 ```console
-$ sudo docker-runc -root /run/docker/runtime-runc/moby events <container_id> \
-    | sudo magneto -root /run/docker/runtime-runc/moby
+$ sudo docker-runc -root /run/docker/runtime-runc/moby events <container_id> | magneto
+CPU %               MEM USAGE / LIMIT   MEM %               NET I/O             BLOCK I/O           PIDS
+100.12%             452KiB / 8EiB       0.00%               0B / 0B             0B / 0B             2
 ```
 
 ```console
@@ -47,8 +48,6 @@ $ magneto --help
  Build: 30036e2
 
   -d    run in debug mode
-  -root string
-        root directory of runc storage of container state (default "/run/runc")
   -v    print version and exit (shorthand)
   -version
         print version and exit

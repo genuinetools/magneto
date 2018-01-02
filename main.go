@@ -6,9 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,7 +17,6 @@ import (
 	"github.com/jessfraz/magneto/types"
 	"github.com/jessfraz/magneto/version"
 	"github.com/opencontainers/runc/libcontainer/system"
-	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -38,23 +35,19 @@ const (
 
 `
 
-	specFile    = "config.json"
-	stateFile   = "state.json"
-	defaultRoot = "/run/runc"
+	specFile  = "config.json"
+	stateFile = "state.json"
 
 	nanoSecondsPerSecond = 1e9
 )
 
 var (
-	root string
-
 	debug bool
 	vrsn  bool
 )
 
 func init() {
 	// Parse flags
-	flag.StringVar(&root, "root", defaultRoot, "root directory of runc storage of container state")
 	flag.BoolVar(&vrsn, "version", false, "print version and exit")
 	flag.BoolVar(&vrsn, "v", false, "print version and exit (shorthand)")
 	flag.BoolVar(&debug, "d", false, "run in debug mode")
@@ -90,8 +83,8 @@ type containerStats struct {
 	MemoryPercentage    float64
 	NetworkRx           float64
 	NetworkTx           float64
-	BlockRead           uint64
-	BlockWrite          uint64
+	BlockRead           float64
+	BlockWrite          float64
 	PidsCurrent         uint64
 	mu                  sync.RWMutex
 	bufReader           *bufio.Reader
@@ -166,12 +159,6 @@ func (s *containerStats) collect() {
 			}
 			v := e.Data
 
-			/*resources, err := getContainerResources(e.ID)
-			if err != nil {
-				u <- fmt.Errorf("Getting container's configured resources failed: %v", err)
-				continue
-			}*/
-
 			systemUsage, err := s.getSystemCPUUsage()
 			if err != nil {
 				u <- fmt.Errorf("collecting system cpu usage failed: %v", err)
@@ -195,8 +182,8 @@ func (s *containerStats) collect() {
 			// set the stats
 			s.mu.Lock()
 			s.CPUPercentage = cpuPercent
-			s.BlockRead = blkRead
-			s.BlockWrite = blkWrite
+			s.BlockRead = float64(blkRead)
+			s.BlockWrite = float64(blkWrite)
 			s.Memory = mem
 			s.MemoryLimit = memLimit
 			s.MemoryPercentage = memPercent
@@ -218,8 +205,6 @@ func (s *containerStats) collect() {
 	}
 }
 
-var it = 0
-
 func (s *containerStats) Display(w io.Writer) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -229,16 +214,13 @@ func (s *containerStats) Display(w io.Writer) error {
 		return s.err
 	}
 
-	fmt.Fprintf(w, "%.2f%%\t%s / %s\t%.2f%%\t%s / %s\t%d / %d\t%d\n",
+	fmt.Fprintf(w, "%.2f%%\t%s / %s\t%.2f%%\t%s / %s\t%s / %s\t%d\n",
 		s.CPUPercentage,
-		units.HumanSize(s.Memory), units.HumanSize(s.MemoryLimit),
+		units.BytesSize(s.Memory), units.BytesSize(s.MemoryLimit),
 		s.MemoryPercentage,
-		units.HumanSize(s.NetworkRx), units.HumanSize(s.NetworkTx),
-		s.BlockRead, s.BlockWrite,
+		units.HumanSizeWithPrecision(s.NetworkRx, 3), units.HumanSizeWithPrecision(s.NetworkTx, 3),
+		units.HumanSizeWithPrecision(s.BlockRead, 3), units.HumanSizeWithPrecision(s.BlockWrite, 3),
 		s.PidsCurrent)
-
-	logrus.Infof("displayed stats %d", it)
-	it++
 	return nil
 }
 
@@ -347,73 +329,4 @@ func (s *containerStats) getSystemCPUUsage() (uint64, error) {
 	}
 
 	return 0, fmt.Errorf("invalid stat format. Error trying to parse the '/proc/stat' file")
-}
-
-func getContainerResources(id string) (*specs.LinuxResources, error) {
-	abs, err := filepath.Abs(root)
-	if err != nil {
-		return nil, err
-	}
-
-	// check to make sure a container exists with this ID
-	statePath := filepath.Join(abs, id, stateFile)
-
-	// read the state.json for the container so we can find out the bundle path
-	f, err := os.Open(statePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("JSON runtime state file %s not found at %s", stateFile, statePath)
-		}
-	}
-	defer f.Close()
-
-	var state types.State
-	if err = json.NewDecoder(f).Decode(&state); err != nil {
-		return nil, err
-	}
-
-	bundle := searchLabels(state.Config.Labels, "bundle")
-	specPath := filepath.Join(bundle, specFile)
-
-	// read the runtime.json for the container so we know things like limits set
-	// this is only if a container ID is not passed we assume we are in a directory
-	// with a config.json containing the spec
-	f, err = os.Open(specPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("JSON runtime config file %s not found at %s", specFile, specPath)
-		}
-	}
-	defer f.Close()
-
-	var spec specs.Spec
-	if err = json.NewDecoder(f).Decode(&spec); err != nil {
-		return nil, err
-	}
-	if spec.Linux.Resources.Memory.Limit == nil {
-		// set the memory limit manually
-		b, err := ioutil.ReadFile(filepath.Join(state.CgroupPaths["memory"], "memory.limit_in_bytes"))
-		if err != nil {
-			return nil, err
-		}
-		i, err := units.RAMInBytes(strings.TrimSpace(string(b)) + "b")
-		if err != nil {
-			return nil, err
-		}
-		spec.Linux.Resources.Memory.Limit = &i
-	}
-	return spec.Linux.Resources, nil
-}
-
-func searchLabels(labels []string, query string) string {
-	for _, l := range labels {
-		parts := strings.SplitN(l, "=", 2)
-		if len(parts) < 2 {
-			continue
-		}
-		if parts[0] == query {
-			return parts[1]
-		}
-	}
-	return ""
 }
