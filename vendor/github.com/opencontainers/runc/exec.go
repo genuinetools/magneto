@@ -6,33 +6,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
-	"github.com/opencontainers/runc/libcontainer"
-	"github.com/opencontainers/runc/libcontainer/utils"
-	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/urfave/cli"
+	"github.com/Sirupsen/logrus"
+	"github.com/codegangsta/cli"
+	"github.com/opencontainers/specs"
 )
 
 var execCommand = cli.Command{
 	Name:  "exec",
 	Usage: "execute new process inside the container",
-	ArgsUsage: `<container-id> <command> [command options]  || -p process.json <container-id>
-
-Where "<container-id>" is the name for the instance of the container and
-"<command>" is the command to be executed in the container.
-"<command>" can't be empty unless a "-p" flag provided.
-
-EXAMPLE:
-For example, if the container is configured to run the linux ps command the
-following will output a list of processes running in the container:
-
-       # runc exec <container-id> ps`,
 	Flags: []cli.Flag{
 		cli.StringFlag{
-			Name:  "console-socket",
-			Usage: "path to an AF_UNIX socket which will receive a file descriptor referencing the master end of the console's pseudoterminal",
+			Name:  "console",
+			Usage: "specify the pty slave path for use with the container",
 		},
 		cli.StringFlag{
 			Name:  "cwd",
@@ -50,12 +39,8 @@ following will output a list of processes running in the container:
 			Name:  "user, u",
 			Usage: "UID (format: <uid>[:<gid>])",
 		},
-		cli.Int64SliceFlag{
-			Name:  "additional-gids, g",
-			Usage: "additional gids",
-		},
 		cli.StringFlag{
-			Name:  "process, p",
+			Name:  "process,p",
 			Usage: "path to the process.json",
 		},
 		cli.BoolFlag{
@@ -67,43 +52,17 @@ following will output a list of processes running in the container:
 			Value: "",
 			Usage: "specify the file to write the process id to",
 		},
-		cli.StringFlag{
-			Name:  "process-label",
-			Usage: "set the asm process label for the process commonly used with selinux",
-		},
-		cli.StringFlag{
-			Name:  "apparmor",
-			Usage: "set the apparmor profile for the process",
-		},
-		cli.BoolFlag{
-			Name:  "no-new-privs",
-			Usage: "set the no new privileges value for the process",
-		},
-		cli.StringSliceFlag{
-			Name:  "cap, c",
-			Value: &cli.StringSlice{},
-			Usage: "add a capability to the bounding set for the process",
-		},
-		cli.BoolFlag{
-			Name:   "no-subreaper",
-			Usage:  "disable the use of the subreaper used to reap reparented processes",
-			Hidden: true,
-		},
 	},
-	Action: func(context *cli.Context) error {
-		if err := checkArgs(context, 1, minArgs); err != nil {
-			return err
-		}
-		if err := revisePidFile(context); err != nil {
-			return err
+	Action: func(context *cli.Context) {
+		if os.Geteuid() != 0 {
+			logrus.Fatal("runc should be run as root")
 		}
 		status, err := execProcess(context)
-		if err == nil {
-			os.Exit(status)
+		if err != nil {
+			logrus.Fatalf("exec failed: %v", err)
 		}
-		return fmt.Errorf("exec failed: %v", err)
+		os.Exit(status)
 	},
-	SkipArgReorder: true,
 }
 
 func execProcess(context *cli.Context) (int, error) {
@@ -111,37 +70,19 @@ func execProcess(context *cli.Context) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	status, err := container.Status()
+
+	var (
+		detach = context.Bool("detach")
+		rootfs = container.Config().Rootfs
+	)
+
+	p, err := getProcess(context, path.Dir(rootfs))
 	if err != nil {
 		return -1, err
 	}
-	if status == libcontainer.Stopped {
-		return -1, fmt.Errorf("cannot exec a container that has stopped")
-	}
-	path := context.String("process")
-	if path == "" && len(context.Args()) == 1 {
-		return -1, fmt.Errorf("process args cannot be empty")
-	}
-	detach := context.Bool("detach")
-	state, err := container.State()
-	if err != nil {
-		return -1, err
-	}
-	bundle := utils.SearchLabels(state.Config.Labels, "bundle")
-	p, err := getProcess(context, bundle)
-	if err != nil {
-		return -1, err
-	}
-	r := &runner{
-		enableSubreaper: false,
-		shouldDestroy:   false,
-		container:       container,
-		consoleSocket:   context.String("console-socket"),
-		detach:          detach,
-		pidFile:         context.String("pid-file"),
-		action:          CT_ACT_RUN,
-	}
-	return r.run(p)
+
+	return runProcess(container, p, nil, context.String("console"), context.String("pid-file"), detach)
+
 }
 
 func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
@@ -155,7 +96,7 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		if err := json.NewDecoder(f).Decode(&p); err != nil {
 			return nil, err
 		}
-		return &p, validateProcessSpec(&p)
+		return &p, nil
 	}
 	// process via cli flags
 	if err := os.Chdir(bundle); err != nil {
@@ -171,30 +112,13 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 	if context.String("cwd") != "" {
 		p.Cwd = context.String("cwd")
 	}
-	if ap := context.String("apparmor"); ap != "" {
-		p.ApparmorProfile = ap
-	}
-	if l := context.String("process-label"); l != "" {
-		p.SelinuxLabel = l
-	}
-	if caps := context.StringSlice("cap"); len(caps) > 0 {
-		for _, c := range caps {
-			p.Capabilities.Bounding = append(p.Capabilities.Bounding, c)
-			p.Capabilities.Inheritable = append(p.Capabilities.Inheritable, c)
-			p.Capabilities.Effective = append(p.Capabilities.Effective, c)
-			p.Capabilities.Permitted = append(p.Capabilities.Permitted, c)
-			p.Capabilities.Ambient = append(p.Capabilities.Ambient, c)
-		}
-	}
 	// append the passed env variables
-	p.Env = append(p.Env, context.StringSlice("env")...)
-
+	for _, e := range context.StringSlice("env") {
+		p.Env = append(p.Env, e)
+	}
 	// set the tty
 	if context.IsSet("tty") {
 		p.Terminal = context.Bool("tty")
-	}
-	if context.IsSet("no-new-privs") {
-		p.NoNewPrivileges = context.Bool("no-new-privs")
 	}
 	// override the user, if passed
 	if context.String("user") != "" {
@@ -212,11 +136,5 @@ func getProcess(context *cli.Context, bundle string) (*specs.Process, error) {
 		}
 		p.User.UID = uint32(uid)
 	}
-	for _, gid := range context.Int64Slice("additional-gids") {
-		if gid < 0 {
-			return nil, fmt.Errorf("additional-gids must be a positive number %d", gid)
-		}
-		p.User.AdditionalGids = append(p.User.AdditionalGids, uint32(gid))
-	}
-	return p, nil
+	return &p, nil
 }
