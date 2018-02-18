@@ -44,3 +44,7 @@ Icon
 
 magneto
 cross/
+
+# Go coverage results
+coverage.txt
+profile.out
