@@ -35,9 +35,6 @@ const (
 
 `
 
-	specFile  = "config.json"
-	stateFile = "state.json"
-
 	nanoSecondsPerSecond = 1e9
 )
 
@@ -118,16 +115,6 @@ func main() {
 	}
 }
 
-func usageAndExit(message string, exitCode int) {
-	if message != "" {
-		fmt.Fprintf(os.Stderr, message)
-		fmt.Fprintf(os.Stderr, "\n\n")
-	}
-	flag.Usage()
-	fmt.Fprintf(os.Stderr, "\n")
-	os.Exit(exitCode)
-}
-
 func (s *containerStats) collect() {
 	var (
 		previousCPU    uint64
@@ -174,8 +161,6 @@ func (s *containerStats) collect() {
 			mem = calculateMemUsageNoCache(v.Memory)
 			memLimit = float64(v.Memory.Usage.Limit)
 			memPercent = calculateMemPercentNoCache(s.MemoryLimit, s.Memory)
-
-			//netRx, netTx = calculateNetwork(e.Data.Interfaces)
 
 			pidsCurrent = v.Pids.Current
 
@@ -257,16 +242,6 @@ func calculateBlockIO(blkio types.Blkio) (uint64, uint64) {
 		}
 	}
 	return blkRead, blkWrite
-}
-
-func calculateNetwork(network []*types.NetworkInterface) (float64, float64) {
-	var rx, tx float64
-
-	for _, v := range network {
-		rx += float64(v.RxBytes)
-		tx += float64(v.TxBytes)
-	}
-	return rx, tx
 }
 
 // calculateMemUsageNoCache calculate memory usage of the container.
