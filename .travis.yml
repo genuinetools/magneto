@@ -4,7 +4,7 @@
   notifications:
     email: true
   go:
-    - stable
+    - 1.x
     - tip
   env:
     global:
@@ -46,5 +46,4 @@
       - cross/magneto-linux-amd64
     skip_cleanup: true
     on:
-      go: stable
       tags: true
