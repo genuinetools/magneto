@@ -1,6 +1,6 @@
 # magneto
 
-[![Travis CI](https://travis-ci.org/jessfraz/magneto.svg?branch=master)](https://travis-ci.org/jessfraz/magneto)
+[![Travis CI](https://travis-ci.org/genuinetools/magneto.svg?branch=master)](https://travis-ci.org/genuinetools/magneto)
 
 Pipe runc events to a stats TUI (Text User Interface).
 
@@ -8,12 +8,12 @@ Pipe runc events to a stats TUI (Text User Interface).
 
 #### Binaries
 
-- **linux** [386](https://github.com/jessfraz/magneto/releases/download/v0.1.0/magneto-linux-386) / [amd64](https://github.com/jessfraz/magneto/releases/download/v0.1.0/magneto-linux-amd64) / [arm](https://github.com/jessfraz/magneto/releases/download/v0.1.0/magneto-linux-arm) / [arm64](https://github.com/jessfraz/magneto/releases/download/v0.1.0/magneto-linux-arm64)
+- **linux** [386](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-386) / [amd64](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-amd64) / [arm](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-arm) / [arm64](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-arm64)
 
 #### Via Go
 
 ```bash
-$ go get github.com/jessfraz/magneto
+$ go get github.com/genuinetools/magneto
 ```
 
 ## Usage

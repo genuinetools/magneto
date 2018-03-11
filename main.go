@@ -14,8 +14,8 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
-	"github.com/jessfraz/magneto/types"
-	"github.com/jessfraz/magneto/version"
+	"github.com/genuinetools/magneto/types"
+	"github.com/genuinetools/magneto/version"
 	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/sirupsen/logrus"
 )
