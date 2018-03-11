@@ -8,7 +8,7 @@ Pipe runc events to a stats TUI (Text User Interface).
 
 #### Binaries
 
-- **linux** [386](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-386) / [amd64](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-amd64) / [arm](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-arm) / [arm64](https://github.com/genuinetools/magneto/releases/download/v0.1.0/magneto-linux-arm64)
+- **linux** [386](https://github.com/genuinetools/magneto/releases/download/v0.2.0/magneto-linux-386) / [amd64](https://github.com/genuinetools/magneto/releases/download/v0.2.0/magneto-linux-amd64) / [arm](https://github.com/genuinetools/magneto/releases/download/v0.2.0/magneto-linux-arm) / [arm64](https://github.com/genuinetools/magneto/releases/download/v0.2.0/magneto-linux-arm64)
 
 #### Via Go
 
@@ -44,7 +44,7 @@ $ magneto --help
                  |___/
 
  Pipe runc events to a stats TUI (Text User Interface).
- Version: v0.1.0
+ Version: v0.2.0
  Build: 30036e2
 
   -d    run in debug mode
