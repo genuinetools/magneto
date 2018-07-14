@@ -3,43 +3,58 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:582d54fcb7233da8dde1dfd2210a5b9675d0685f84246a8d317b07d680c18b1b"
   name = "github.com/docker/go-units"
   packages = ["."]
+  pruneopts = ""
   revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
 
 [[projects]]
+  digest = "1:f1c4c08042a9385a71bf73ea949c92770992eb8ef38254e29106dde74a5f5214"
   name = "github.com/opencontainers/runc"
   packages = [
     "libcontainer/configs",
-    "libcontainer/system"
+    "libcontainer/system",
   ]
+  pruneopts = ""
   revision = "1a124e9c2da68c867ed2c4f4ff19f0cd95cda0cd"
   version = "v0.0.8"
 
 [[projects]]
+  digest = "1:f2cc92b78b2f3b76ab0f9daddddd28627bcfcc6cacf119029aa3850082d95079"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "d682213848ed68c0a260ca37d6dd5ace8423f5ba"
-  version = "v1.0.4"
+  pruneopts = ""
+  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
+  version = "v1.0.5"
 
 [[projects]]
   branch = "master"
+  digest = "1:e79c3d6b195477b429f017aaa02af135249bbdff31c9acbd8a93bb37a4ef7d3b"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "c7dcf104e3a7a1417abc0230cb0d5240d764159d"
+  pruneopts = ""
+  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [[projects]]
   branch = "master"
+  digest = "1:880f5ae3ffdd8741fe179f0f70b46df57fcdd746f3a0e9d0e189bb6a241535e4"
   name = "golang.org/x/sys"
   packages = [
     "unix",
-    "windows"
+    "windows",
   ]
-  revision = "7dca6fe1f43775aa6d1334576870ff63f978f539"
+  pruneopts = ""
+  revision = "1b2967e3c290b7c545b3db0deeda16e9be4f98a2"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "d70b6036d4d7966b173908d9dd364485ef432cb90c386d311729987ee5cb6df8"
+  input-imports = [
+    "github.com/docker/go-units",
+    "github.com/opencontainers/runc/libcontainer/configs",
+    "github.com/opencontainers/runc/libcontainer/system",
+    "github.com/sirupsen/logrus",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1
