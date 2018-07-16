@@ -42,22 +42,18 @@ CPU %               MEM USAGE / LIMIT   MEM %               NET I/O             
 ```
 
 ```console
-$ magneto --help
-                                  _
- _ __ ___   __ _  __ _ _ __   ___| |_ ___
-| '_ ` _ \ / _` |/ _` | '_ \ / _ \ __/ _ \
-| | | | | | (_| | (_| | | | |  __/ || (_) |
-|_| |_| |_|\__,_|\__, |_| |_|\___|\__\___/
-                 |___/
+$ magneto -h
+magneto -  Pipe runc events to a stats TUI (Text User Interface).
 
- Pipe runc events to a stats TUI (Text User Interface).
- Version: v0.2.1
- Build: 30036e2
+Usage: magneto <command>
 
-  -d    run in debug mode
-  -v    print version and exit (shorthand)
-  -version
-        print version and exit
+Flags:
+
+  -d  enable debug logging (default: false)
+
+Commands:
+
+  version  Show the version information.
 ```
 
 **NOTE:** Almost all this is the exact same as `docker stats`, so thanks to

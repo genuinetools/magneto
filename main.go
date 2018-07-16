@@ -2,70 +2,35 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/genuinetools/magneto/types"
 	"github.com/genuinetools/magneto/version"
+	"github.com/genuinetools/pkg/cli"
 	"github.com/opencontainers/runc/libcontainer/system"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	// BANNER is what is printed for help/info output
-	BANNER = `                                  _
- _ __ ___   __ _  __ _ _ __   ___| |_ ___
-| '_ ` + "`" + ` _ \ / _` + "`" + ` |/ _` + "`" + ` | '_ \ / _ \ __/ _ \
-| | | | | | (_| | (_| | | | |  __/ || (_) |
-|_| |_| |_|\__,_|\__, |_| |_|\___|\__\___/
-                 |___/
-
- Pipe runc events to a stats TUI (Text User Interface).
- Version: %s
- Build: %s
-
-`
-
 	nanoSecondsPerSecond = 1e9
 )
 
 var (
 	debug bool
-	vrsn  bool
 )
-
-func init() {
-	// Parse flags
-	flag.BoolVar(&vrsn, "version", false, "print version and exit")
-	flag.BoolVar(&vrsn, "v", false, "print version and exit (shorthand)")
-	flag.BoolVar(&debug, "d", false, "run in debug mode")
-
-	flag.Usage = func() {
-		fmt.Fprint(os.Stderr, fmt.Sprintf(BANNER, version.VERSION, version.GITCOMMIT))
-		flag.PrintDefaults()
-	}
-
-	flag.Parse()
-
-	if vrsn {
-		fmt.Printf("magneto version %s, build %s", version.VERSION, version.GITCOMMIT)
-		os.Exit(0)
-	}
-
-	// Set log level
-	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-}
 
 type event struct {
 	Type string      `json:"type"`
@@ -90,29 +55,70 @@ type containerStats struct {
 }
 
 func main() {
-	// create the writer
-	w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
-	printHeader := func() {
-		fmt.Fprint(os.Stdout, "\033[2J")
-		fmt.Fprint(os.Stdout, "\033[H")
-		io.WriteString(w, "CPU %\tMEM USAGE / LIMIT\tMEM %\tNET I/O\tBLOCK I/O\tPIDS\n")
-	}
+	// Create a new cli program.
+	p := cli.NewProgram()
+	p.Name = "magneto"
+	p.Description = "Pipe runc events to a stats TUI (Text User Interface)"
 
-	// collect the stats
-	s := &containerStats{
-		clockTicksPerSecond: uint64(system.GetClockTicks()),
-		bufReader:           bufio.NewReaderSize(nil, 128),
-	}
+	// Set the GitCommit and Version.
+	p.GitCommit = version.GITCOMMIT
+	p.Version = version.VERSION
 
-	go s.collect()
+	// Setup the global flags.
+	p.FlagSet = flag.NewFlagSet("global", flag.ExitOnError)
+	p.FlagSet.BoolVar(&debug, "d", false, "enable debug logging")
 
-	for range time.Tick(5 * time.Second) {
-		printHeader()
-		if err := s.Display(w); err != nil {
-			logrus.Error(err)
+	// Set the before function.
+	p.Before = func(ctx context.Context) error {
+		// Set the log level.
+		if debug {
+			logrus.SetLevel(logrus.DebugLevel)
 		}
-		w.Flush()
+
+		return nil
 	}
+
+	// Set the main program action.
+	p.Action = func(ctx context.Context, args []string) error {
+		// On ^C, or SIGTERM handle exit.
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, os.Interrupt)
+		signal.Notify(c, syscall.SIGTERM)
+		go func() {
+			for sig := range c {
+				logrus.Infof("Received %s, exiting.", sig.String())
+				os.Exit(0)
+			}
+		}()
+		// create the writer
+		w := tabwriter.NewWriter(os.Stdout, 20, 1, 3, ' ', 0)
+		printHeader := func() {
+			fmt.Fprint(os.Stdout, "\033[2J")
+			fmt.Fprint(os.Stdout, "\033[H")
+			io.WriteString(w, "CPU %\tMEM USAGE / LIMIT\tMEM %\tNET I/O\tBLOCK I/O\tPIDS\n")
+		}
+
+		// collect the stats
+		s := &containerStats{
+			clockTicksPerSecond: uint64(system.GetClockTicks()),
+			bufReader:           bufio.NewReaderSize(nil, 128),
+		}
+
+		go s.collect()
+
+		for range time.Tick(5 * time.Second) {
+			printHeader()
+			if err := s.Display(w); err != nil {
+				logrus.Error(err)
+			}
+			w.Flush()
+		}
+
+		return nil
+	}
+
+	// Run our program.
+	p.Run()
 }
 
 func (s *containerStats) collect() {

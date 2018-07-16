@@ -3,55 +3,64 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:582d54fcb7233da8dde1dfd2210a5b9675d0685f84246a8d317b07d680c18b1b"
+  digest = "1:4340101f42556a9cb2f7a360a0e95a019bfef6247d92e6c4c46f2433cf86a482"
   name = "github.com/docker/go-units"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "NUT"
   revision = "47565b4f722fb6ceae66b95f853feed578a4a51c"
 
 [[projects]]
-  digest = "1:f1c4c08042a9385a71bf73ea949c92770992eb8ef38254e29106dde74a5f5214"
+  branch = "master"
+  digest = "1:72ababdf871b47fe0d8f465b549cb487786160c2216aa14587acad047fdb051a"
+  name = "github.com/genuinetools/pkg"
+  packages = ["cli"]
+  pruneopts = "NUT"
+  revision = "6c9354aa29e8454896b79b212e7053211f815349"
+
+[[projects]]
+  digest = "1:d820da81d89de9bbc504075aee584b8b27531d2597747944d6a972557f0cc597"
   name = "github.com/opencontainers/runc"
   packages = [
     "libcontainer/configs",
     "libcontainer/system",
   ]
-  pruneopts = ""
+  pruneopts = "NUT"
   revision = "1a124e9c2da68c867ed2c4f4ff19f0cd95cda0cd"
   version = "v0.0.8"
 
 [[projects]]
-  digest = "1:f2cc92b78b2f3b76ab0f9daddddd28627bcfcc6cacf119029aa3850082d95079"
+  digest = "1:6989062eb7ccf25cf38bf4fe3dba097ee209f896cda42cefdca3927047bef7b6"
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  pruneopts = ""
+  pruneopts = "NUT"
   revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
   version = "v1.0.5"
 
 [[projects]]
   branch = "master"
-  digest = "1:e79c3d6b195477b429f017aaa02af135249bbdff31c9acbd8a93bb37a4ef7d3b"
+  digest = "1:3f3a05ae0b95893d90b9b3b5afdb79a9b3d96e4e36e099d841ae602e4aca0da8"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  pruneopts = ""
+  pruneopts = "NUT"
   revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [[projects]]
   branch = "master"
-  digest = "1:880f5ae3ffdd8741fe179f0f70b46df57fcdd746f3a0e9d0e189bb6a241535e4"
+  digest = "1:64107e3c8f52f341891a565d117bf263ed396fe0c16bad19634b25be25debfaa"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
-  pruneopts = ""
-  revision = "1b2967e3c290b7c545b3db0deeda16e9be4f98a2"
+  pruneopts = "NUT"
+  revision = "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/docker/go-units",
+    "github.com/genuinetools/pkg/cli",
     "github.com/opencontainers/runc/libcontainer/configs",
     "github.com/opencontainers/runc/libcontainer/system",
     "github.com/sirupsen/logrus",
