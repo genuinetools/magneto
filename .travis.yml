@@ -18,18 +18,18 @@ jobs:
       deploy:
         provider: releases
         file:
-          - cross/magneto-linux-amd64.md5
           - cross/magneto-linux-arm
-          - cross/magneto-linux-arm64.sha256
-          - cross/magneto-linux-arm.sha256
-          - cross/magneto-linux-386.sha256
-          - cross/magneto-linux-arm64.md5
-          - cross/magneto-linux-arm64
-          - cross/magneto-linux-amd64.sha256
-          - cross/magneto-linux-386.md5
           - cross/magneto-linux-arm.md5
-          - cross/magneto-linux-386
+          - cross/magneto-linux-arm.sha256
+          - cross/magneto-linux-arm64
+          - cross/magneto-linux-arm64.md5
+          - cross/magneto-linux-arm64.sha256
           - cross/magneto-linux-amd64
+          - cross/magneto-linux-amd64.md5
+          - cross/magneto-linux-amd64.sha256
+          - cross/magneto-linux-386
+          - cross/magneto-linux-386.md5
+          - cross/magneto-linux-386.sha256
         skip_cleanup: true
         on:
           tags: true

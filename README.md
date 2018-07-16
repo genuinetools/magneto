@@ -1,18 +1,25 @@
 # magneto
 
-[![Travis CI](https://travis-ci.org/genuinetools/magneto.svg?branch=master)](https://travis-ci.org/genuinetools/magneto)
+[![Travis CI](https://img.shields.io/travis/genuinetools/magneto.svg?style=for-the-badge)](https://travis-ci.org/genuinetools/magneto)
+[![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=for-the-badge)](https://godoc.org/github.com/genuinetools/magneto)
+[![Github All Releases](https://img.shields.io/github/downloads/genuinetools/magneto/total.svg?style=for-the-badge)](https://github.com/genuinetools/magneto/releases)
 
 Pipe runc events to a stats TUI (Text User Interface).
+
+ * [Installation](README.md#installation)
+      * [Binaries](README.md#binaries)
+      * [Via Go](README.md#via-go)
+ * [Usage](README.md#usage)
 
 ## Installation
 
 #### Binaries
 
-- **linux** [386](https://github.com/genuinetools/magneto/releases/download/v0.2.1/magneto-linux-386) / [amd64](https://github.com/genuinetools/magneto/releases/download/v0.2.1/magneto-linux-amd64) / [arm](https://github.com/genuinetools/magneto/releases/download/v0.2.1/magneto-linux-arm) / [arm64](https://github.com/genuinetools/magneto/releases/download/v0.2.1/magneto-linux-arm64)
+For installation instructions from binaries please visit the [Releases Page](https://github.com/genuinetools/magneto/releases).
 
 #### Via Go
 
-```bash
+```console
 $ go get github.com/genuinetools/magneto
 ```
 
