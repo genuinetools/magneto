@@ -1,0 +1,17 @@
+# github.com/docker/go-units v0.3.3
+github.com/docker/go-units
+# github.com/genuinetools/pkg v0.0.0-20180910213200-1c141f661797
+github.com/genuinetools/pkg/cli
+# github.com/opencontainers/runc v0.0.0-20180920170208-00dc70017d22
+github.com/opencontainers/runc/libcontainer/system
+github.com/opencontainers/runc/libcontainer/configs
+github.com/opencontainers/runc/libcontainer/user
+# github.com/opencontainers/runtime-spec v1.0.1
+github.com/opencontainers/runtime-spec/specs-go
+# github.com/sirupsen/logrus v1.0.6
+github.com/sirupsen/logrus
+# golang.org/x/crypto v0.0.0-20180910181607-0e37d006457b
+golang.org/x/crypto/ssh/terminal
+# golang.org/x/sys v0.0.0-20180925112736-b09afc3d579e
+golang.org/x/sys/unix
+golang.org/x/sys/windows
