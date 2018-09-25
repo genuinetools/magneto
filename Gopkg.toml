@@ -31,3 +31,7 @@
 [[override]]
   name = "github.com/docker/go-units"
   branch = "master"
+
+[[constraint]]
+  name = "github.com/opencontainers/runc"
+  branch = "master"
