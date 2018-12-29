@@ -8,6 +8,11 @@ Pipe runc events to a stats TUI (Text User Interface).
 
 <!-- toc -->
 
+- [Installation](#installation)
+    + [Binaries](#binaries)
+    + [Via Go](#via-go)
+- [Usage](#usage)
+
 <!-- tocstop -->
 
 ## Installation
