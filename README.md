@@ -6,10 +6,9 @@
 
 Pipe runc events to a stats TUI (Text User Interface).
 
- * [Installation](README.md#installation)
-      * [Binaries](README.md#binaries)
-      * [Via Go](README.md#via-go)
- * [Usage](README.md#usage)
+<!-- toc -->
+
+<!-- tocstop -->
 
 ## Installation
 
