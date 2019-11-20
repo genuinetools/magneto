@@ -1,19 +1,14 @@
 # magneto
 
-[![Travis CI](https://img.shields.io/travis/genuinetools/magneto.svg?style=for-the-badge)](https://travis-ci.org/genuinetools/magneto)
+![make-all](https://github.com/genuinetools/magneto/workflows/make%20all/badge.svg)
+![make-image](https://github.com/genuinetools/magneto/workflows/make%20image/badge.svg)
 [![GoDoc](https://img.shields.io/badge/godoc-reference-5272B4.svg?style=for-the-badge)](https://godoc.org/github.com/genuinetools/magneto)
 [![Github All Releases](https://img.shields.io/github/downloads/genuinetools/magneto/total.svg?style=for-the-badge)](https://github.com/genuinetools/magneto/releases)
 
 Pipe runc events to a stats TUI (Text User Interface).
 
-<!-- toc -->
-
-- [Installation](#installation)
-    + [Binaries](#binaries)
-    + [Via Go](#via-go)
-- [Usage](#usage)
-
-<!-- tocstop -->
+<!-- START doctoc -->
+<!-- END doctoc -->
 
 ## Installation
 
